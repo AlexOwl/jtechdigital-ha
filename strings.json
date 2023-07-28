@@ -1,0 +1,55 @@
+{
+    "config": {
+        "flow_title": "{name}",
+        "step": {
+            "user": {
+                "title": "Setup J-Tech Digital HDMI Matrix",
+                "description": "Ensure that your HDMI Matrix is turned on before trying to set it up.",
+                "data": {
+                    "host": "[%key:common::config_flow::data::host%]"
+                }
+            },
+            "authorize": {
+                "title": "Authorize J-Tech Digital HDMI Matrix",
+                "description": "You can change default username and password at the dashboard of your device.",
+                "data": {
+                    "username": "[%key:common::config_flow::data::username%]",
+                    "password": "[%key:common::config_flow::data::password%]"
+                }
+            },
+            "confirm": {
+                "description": "[%key:common::config_flow::description::confirm_setup%]"
+            }
+        },
+        "error": {
+            "invalid_host": "[%key:common::config_flow::error::invalid_host%]",
+            "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
+            "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+            "unsupported_model": "Your HDMI Matrix model is not supported.",
+            "unknown": "[%key:common::config_flow::error::unknown%]"
+        },
+        "abort": {
+            "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
+            "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]"
+        }
+    },
+    "options": {
+        "flow_title": "{name}",
+        "step": {
+            "init": {
+                "title": "J-Tech Digital HDMI Matrix Options",
+                "description": "Configure advanced settings for your HDMI Matrix.",
+                "data": {
+                    "hdmi_stream_toggle": "Toggle HDMI Stream",
+                    "cat_stream_toggle": "Toggle CAT Stream",
+                    "cec_source_toggle": "Send CEC power commands to source",
+                    "cec_output_toggle": "Send CEC power commands to output",
+                    "cec_delay_power": "Delay between Stream toggle and CEC power command",
+                    "cec_delay_source": "Delay between CEC power and source commands",
+                    "volume_control": "Volume Control"
+                }
+            }
+        }
+    },
+    "entity": {}
+}
