@@ -35,17 +35,18 @@ from homeassistant.components.homekit.const import (
     KEY_PLAY_PAUSE,
     ATTR_KEY_NAME,
 )
-from homeassistant.const import STATE_OFF, STATE_PLAYING, STATE_IDLE, STATE_UNAVAILABLE
+from homeassistant.const import STATE_OFF, STATE_PLAYING, STATE_ON, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.config_entries import ConfigEntry
 
 from .const import (
     DOMAIN,
     ATTR_MANUFACTURER,
     CONF_HDMI_STREAM_TOGGLE,
     CONF_CAT_STREAM_TOGGLE,
-    CONF_VOLUME_CONTROL,
+    CONF_CEC_VOLUME_CONTROL,
     CONF_CEC_SOURCE_TOGGLE,
     CONF_CEC_OUTPUT_TOGGLE,
     CONF_CEC_DELAY_POWER, 
@@ -64,15 +65,15 @@ async def async_setup_entry(
 
     # Get the coordinator for this entry
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
-    unique_id = config_entry.unique_id
-    assert unique_id is not None
+
+    assert config_entry.unique_id is not None
 
     # Ensure we have the latest data from the coordinator
     await coordinator.async_config_entry_first_refresh()
 
     # Create media player entities for each output in the HDMI matrix
     entities = [
-        JtechMediaPlayer(coordinator, output_idx + 1, unique_id) 
+        JtechMediaPlayer(config_entry, coordinator, output_idx + 1) 
             for output_idx, output_info in enumerate(coordinator.outputs)
     ]
 
@@ -99,45 +100,63 @@ class JtechMediaPlayer(MediaPlayerEntity):
             return self._coordinator.sources[output_info.source - 1]
         return None
 
-    def _get_volume_control(self):
-        """Get the volume_control option."""
-        return self._coordinator.options.get(CONF_VOLUME_CONTROL, "none")
-
     def _get_hdmi_stream_toggle(self):
         """Get the hdmi_stream_toggle option."""
-        _LOGGER.debug("get_hdmi_stream_toggle", self._coordinator.options)
-        return self._coordinator.options.get(CONF_HDMI_STREAM_TOGGLE, False)
+        return self._config_entry.options.get(CONF_HDMI_STREAM_TOGGLE, False)
 
     def _get_cat_stream_toggle(self):
         """Get the cat_stream_toggle option."""
-        return self._coordinator.options.get(CONF_CAT_STREAM_TOGGLE, False)
-    
+        return self._config_entry.options.get(CONF_CAT_STREAM_TOGGLE, False)
+
     def _get_cec_delay_power(self):
         """Get the cec_delay_power option."""
-        return self._coordinator.options.get(CONF_CEC_DELAY_POWER, 0)
+        return self._config_entry.options.get(CONF_CEC_DELAY_POWER, 0)
     
     def _get_cec_delay_source(self):
         """Get the cec_delay_source option."""
-        return self._coordinator.options.get(CONF_CEC_DELAY_SOURCE, 0)
+        return self._config_entry.options.get(CONF_CEC_DELAY_SOURCE, 0)
 
     def _get_cec_source_toggle(self):
         """Get the cec_source_toggle option."""
-        return self._coordinator.options.get(CONF_CEC_SOURCE_TOGGLE, False)
+        return self._config_entry.options.get(CONF_CEC_SOURCE_TOGGLE, False)
     
     def _get_cec_output_toggle(self):
         """Get the cec_output_toggle option."""
-        return self._coordinator.options.get(CONF_CEC_OUTPUT_TOGGLE, False)
+        return self._config_entry.options.get(CONF_CEC_OUTPUT_TOGGLE, False)
+    
+    def _get_cec_volume_control(self):
+        """Get the volume_control option."""
+        return self._config_entry.options.get(CONF_CEC_VOLUME_CONTROL, "none")
+    
+    def _get_output_state(self, output_info):
+        hdmi_stream_toggle = self._get_hdmi_stream_toggle()
+        cat_stream_toggle = self._get_cat_stream_toggle()
 
-    def __init__(self, coordinator: JtechCoordinator, output_index: int, unique_id_entry: str):
+        if cat_stream_toggle and hdmi_stream_toggle:
+            if (output_info.cat_connected and output_info.cat_enabled and output_info.connected and output_info.enabled):
+                return True
+        else: 
+            if cat_stream_toggle:
+                if (output_info.cat_connected and output_info.cat_enabled):
+                    return True
+                    
+            if hdmi_stream_toggle:
+                if (output_info.connected and output_info.enabled):
+                    return True
+                
+            return True
+        return False
+
+    def __init__(self, config_entry: ConfigEntry, coordinator: JtechCoordinator, output_index: int):
         """Initialize the media player."""
+        self._config_entry = config_entry
         self._coordinator = coordinator
         self._output_index = output_index
-        self._unique_id_entry = unique_id_entry
 
     @property
     def supported_features(self):
         """Flag media player features that are supported."""
-        supported_features = (
+        _supported_features = (
             SUPPORT_SELECT_SOURCE
             | SUPPORT_PLAY_MEDIA
             | SUPPORT_PAUSE
@@ -148,24 +167,25 @@ class JtechMediaPlayer(MediaPlayerEntity):
         )
 
         # Add volume controls if available
-        volume_control = self._get_volume_control()
-        if volume_control and volume_control != "none":
-            supported_features |= SUPPORT_VOLUME_STEP
-            supported_features |= SUPPORT_VOLUME_MUTE
+        cec_volume_control = self._get_cec_volume_control()
+        if cec_volume_control and cec_volume_control != "none":
+            _supported_features |= SUPPORT_VOLUME_STEP
+            _supported_features |= SUPPORT_VOLUME_MUTE
 
         # Add turn on/off controls if HDMI and CAT switches are not available
-        toggle_hdmi = self._get_hdmi_stream_toggle()
-        toggle_cat = self._get_cat_stream_toggle()
-        if not (toggle_hdmi and toggle_cat):
-            supported_features |= SUPPORT_TURN_ON
-            supported_features |= SUPPORT_TURN_OFF
+        hdmi_stream_toggle = self._get_hdmi_stream_toggle()
+        cat_stream_toggle = self._get_cat_stream_toggle()
 
-        return supported_features
+        if hdmi_stream_toggle or cat_stream_toggle:
+            _supported_features |= SUPPORT_TURN_ON
+            _supported_features |= SUPPORT_TURN_OFF
+
+        return _supported_features
 
     @property
     def unique_id(self):
         """Return a unique ID for the media player."""
-        return f"{self._unique_id_entry}_output_{self._output_index}"
+        return f"{self._config_entry.unique_id}_output_{self._output_index}"
     
     @property
     def device_info(self) -> DeviceInfo:
@@ -178,7 +198,7 @@ class JtechMediaPlayer(MediaPlayerEntity):
             manufacturer=ATTR_MANUFACTURER,
             model=self._coordinator.data["model"],
             sw_version=self._coordinator.data["version"],
-            via_device=(DOMAIN, self._unique_id_entry),
+            via_device=(DOMAIN, self._config_entry.unique_id),
             configuration_url=f"http://{self._coordinator.data['hostname']}" if self._coordinator.data["hostname"] else None
         )
 
@@ -194,30 +214,13 @@ class JtechMediaPlayer(MediaPlayerEntity):
         """Return the state of the media player."""
         output_info = self._get_output_info()
         if output_info:
-            source_info = self._get_source_info()
-            
-            hdmi_stream_toggle = self._get_hdmi_stream_toggle()
-            cat_stream_toggle = self._get_cat_stream_toggle()
-
-            if cat_stream_toggle and hdmi_stream_toggle:
-                if not (output_info.cat_connected and output_info.cat_enabled and output_info.connected and output_info.enabled):
-                    return STATE_OFF
-                if source_info and source_info.cat_active and source_info.active:
-                    return STATE_PLAYING
-
-            if cat_stream_toggle:
-                if not (output_info.cat_connected and output_info.cat_enabled):
-                    return STATE_OFF
-                if source_info and source_info.cat_active:
-                    return STATE_PLAYING
-                
-            if hdmi_stream_toggle:
-                if not (output_info.connected and output_info.enabled):
-                    return STATE_OFF
+            if self._get_output_state(output_info):
+                source_info = self._get_source_info()
                 if source_info and source_info.active:
                     return STATE_PLAYING
+                return STATE_ON
 
-            return STATE_IDLE
+            return STATE_OFF
 
         # Output information not available, assume the state is unavailable
         return STATE_UNAVAILABLE
@@ -293,22 +296,22 @@ class JtechMediaPlayer(MediaPlayerEntity):
 
     async def async_volume_up(self):
         """Send CEC command to increase volume."""
-        await self._async_volume_send(4, 19)
+        await self._async_volume_send_cec(4, 19)
 
     async def async_volume_down(self):
         """Send CEC command to decrease volume."""
-        await self._async_volume_send(3, 18)
+        await self._async_volume_send_cec(3, 18)
 
     async def async_volume_mute(self):
         """Send CEC command to mute volume."""
-        await self._async_volume_send(2, 17)
+        await self._async_volume_send_cec(2, 17)
 
-    async def _async_volume_send(self, output_command, source_command):
-        volume_control = self._get_volume_control()
+    async def _async_volume_send_cec(self, output_command, source_command):
+        cec_volume_control = self._get_cec_volume_control()
 
-        if volume_control == "output":
+        if cec_volume_control == "output":
             await self._coordinator.async_send_cec_output(self._output_index, output_command)
-        elif volume_control == "source":
+        elif cec_volume_control == "source":
             await self._async_send_cec_source(source_command)
 
     async def _async_send_cec_source(self, source_command):

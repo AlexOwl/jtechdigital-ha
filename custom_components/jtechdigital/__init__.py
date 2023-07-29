@@ -24,7 +24,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     password = config_entry.data[CONF_PASSWORD]
 
     coordinator = JtechCoordinator(hass=hass, host=host, username=username, password=password)
-    coordinator.update_options(config_entry.options)
 
     config_entry.async_on_unload(config_entry.add_update_listener(update_listener))
 

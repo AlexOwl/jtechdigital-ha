@@ -12,7 +12,7 @@ CONF_CEC_SOURCE_TOGGLE = "cec_source_toggle"
 CONF_CEC_OUTPUT_TOGGLE = "cec_output_toggle"
 CONF_CEC_DELAY_POWER = "cec_delay_power"
 CONF_CEC_DELAY_SOURCE = "cec_delay_source"
-CONF_VOLUME_CONTROL = "volume_control"
+CONF_CEC_VOLUME_CONTROL = "cec_volume_control"
 
 ERROR_CONNECT_FAILED = "Failed to connect"
 ERROR_FETCH_DATA_FAILED = "Failed to fetch data"

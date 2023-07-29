@@ -43,10 +43,10 @@
                     "hdmi_stream_toggle": "Toggle HDMI Stream",
                     "cat_stream_toggle": "Toggle CAT Stream",
                     "cec_source_toggle": "Send CEC power commands to source",
-                    "cec_output_toggle": "Send CEC power commands to output",
+                    "cec_output_toggle": "Send CEC power commands to output (HDMI)",
                     "cec_delay_power": "Delay between Stream toggle and CEC power command",
-                    "cec_delay_source": "Delay between CEC power and source commands",
-                    "volume_control": "Volume Control"
+                    "cec_delay_source": "Delay between CEC power and source (to output) commands",
+                    "cec_volume_control": "Type of CEC volume control"
                 }
             }
         }

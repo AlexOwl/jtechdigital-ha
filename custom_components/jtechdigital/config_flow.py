@@ -23,7 +23,7 @@ from .const import (
     CONF_CEC_OUTPUT_TOGGLE,
     CONF_CEC_DELAY_POWER,
     CONF_CEC_DELAY_SOURCE,
-    CONF_VOLUME_CONTROL,
+    CONF_CEC_VOLUME_CONTROL,
 )
 
 class JtechConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -192,25 +192,26 @@ class JtechConfigFlow(ConfigFlow, domain=DOMAIN):
 class JtechOptionsFlow(OptionsFlow):
     def __init__(self, config_entry: ConfigEntry) -> None:
         """Initialize options flow."""
-        self._entry_id = config_entry.entry_id
-        
-        self._options = config_entry.options.copy()
+        self._config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
         """Handle initial options flow."""
+        options = self._config_entry.options
+
         schema = {
-            vol.Optional(CONF_CEC_DELAY_POWER, default=self._options.get(CONF_CEC_DELAY_POWER, 2)): int,
-            vol.Optional(CONF_CEC_DELAY_SOURCE, default=self._options.get(CONF_CEC_DELAY_SOURCE, 2)): int,
-            vol.Optional(CONF_HDMI_STREAM_TOGGLE, default=self._options.get(CONF_HDMI_STREAM_TOGGLE, True)): bool,
-            vol.Optional(CONF_CAT_STREAM_TOGGLE, default=self._options.get(CONF_CAT_STREAM_TOGGLE, True)): bool,
-            vol.Optional(CONF_CEC_SOURCE_TOGGLE, default=self._options.get(CONF_CEC_SOURCE_TOGGLE, True)): bool,
-            vol.Optional(CONF_CEC_OUTPUT_TOGGLE, default=self._options.get(CONF_CEC_OUTPUT_TOGGLE, True)): bool,
-            vol.Optional(CONF_VOLUME_CONTROL, default=self._options.get(CONF_VOLUME_CONTROL, "source")): vol.In(["source", "output", "none"]),
+            vol.Optional(CONF_HDMI_STREAM_TOGGLE, default=options.get(CONF_HDMI_STREAM_TOGGLE, True)): bool,
+            vol.Optional(CONF_CAT_STREAM_TOGGLE, default=options.get(CONF_CAT_STREAM_TOGGLE, True)): bool,
+            vol.Optional(CONF_CEC_DELAY_POWER, default=options.get(CONF_CEC_DELAY_POWER, 2)): int,
+            vol.Optional(CONF_CEC_DELAY_SOURCE, default=options.get(CONF_CEC_DELAY_SOURCE, 2)): int,
+            vol.Optional(CONF_CEC_SOURCE_TOGGLE, default=options.get(CONF_CEC_SOURCE_TOGGLE, True)): bool,
+            vol.Optional(CONF_CEC_OUTPUT_TOGGLE, default=options.get(CONF_CEC_OUTPUT_TOGGLE, False)): bool,
+            vol.Optional(CONF_CEC_VOLUME_CONTROL, default=options.get(CONF_CEC_VOLUME_CONTROL, "source")): vol.In(["source", "output", "none"]),
         }
         errors: dict[str, str] = {}
 
-        if user_input is not None:
-            self.async_create_entry(data=user_input)
+        if user_input is not None:   
+            self.hass.async_create_task(self.hass.config_entries.async_reload(self._config_entry.entry_id))
+            return self.async_create_entry(data=user_input)
 
         return self.async_show_form(
             step_id="init",

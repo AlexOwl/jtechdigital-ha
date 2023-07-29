@@ -27,14 +27,10 @@ class JtechCoordinator(DataUpdateCoordinator):
         self._client = None
         self.connected = False
 
-        self.options = {}
         self.outputs = []
         self.sources = []
 
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=timedelta(seconds=10))
-
-    def update_options(self, options: dict[str, Any]):
-        self.options = options or {}
 
     async def _async_update_data(self):
         """Fetch the latest data from the J-Tech Digital HDMI Matrix."""
