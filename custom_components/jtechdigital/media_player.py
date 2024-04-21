@@ -194,7 +194,7 @@ class JtechMediaPlayer(MediaPlayerEntity):
 
         return DeviceInfo(
             identifiers={ (DOMAIN, self.unique_id) },
-            default_name=output_info.name if output_info else f"Output {self._output_index}",
+            name=output_info.name if output_info else f"Output {self._output_index}",
             manufacturer=ATTR_MANUFACTURER,
             model=self._coordinator.data["model"],
             sw_version=self._coordinator.data["version"],
