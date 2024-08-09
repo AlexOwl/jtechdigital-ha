@@ -200,3 +200,9 @@ class JtechCoordinator(DataUpdateCoordinator):
     async def async_send_cec_source(self, source: int, command: int) -> bool:
         """Send a CEC command to the specified source."""
         return await self._client.send_cec_source(source, command)
+    
+    async def async_power_on(self) -> bool:
+        return await self._client.set_power(True)
+    
+    async def async_power_off(self) -> bool:
+        return await self._client.set_power(False)
