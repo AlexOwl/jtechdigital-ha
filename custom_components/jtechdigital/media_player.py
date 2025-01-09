@@ -6,6 +6,7 @@ import logging
 from homeassistant.components.media_player import (
     MediaPlayerDeviceClass,
     MediaPlayerEntity,
+    MediaPlayerEntityFeature,
     SUPPORT_PAUSE,
     SUPPORT_PLAY,
     SUPPORT_STOP,
@@ -76,6 +77,8 @@ async def async_setup_entry(
         JtechMediaPlayer(config_entry, coordinator, output_idx + 1) 
             for output_idx, output_info in enumerate(coordinator.outputs)
     ]
+
+    entities.append(JtechMasterMediaPlayer(config_entry, coordinator))
 
     # Add the media player entities to Home Assistant
     async_add_entities(entities, update_before_add=True)
@@ -194,7 +197,7 @@ class JtechMediaPlayer(MediaPlayerEntity):
 
         return DeviceInfo(
             identifiers={ (DOMAIN, self.unique_id) },
-            default_name=output_info.name if output_info else f"Output {self._output_index}",
+            name=output_info.name if output_info else f"Output {self._output_index}",
             manufacturer=ATTR_MANUFACTURER,
             model=self._coordinator.data["model"],
             sw_version=self._coordinator.data["version"],
@@ -246,6 +249,7 @@ class JtechMediaPlayer(MediaPlayerEntity):
             if source_info.name == source:
                 await self._coordinator.async_select_source(self._output_index, source_idx + 1)
                 break
+        await self._coordinator.async_request_refresh()
 
     async def async_turn_on(self):
         """Enable the output and send necessary CEC commands to turn on the connected devices."""
@@ -272,6 +276,7 @@ class JtechMediaPlayer(MediaPlayerEntity):
             if delay_source and delay_source > 0:
                 await asyncio.sleep(delay_source)
             await self._coordinator.async_send_cec_output(self._output_index, 5)
+        await self._coordinator.async_request_refresh()
 
     async def async_turn_off(self):
         """Disable the output."""
@@ -292,6 +297,7 @@ class JtechMediaPlayer(MediaPlayerEntity):
             await self._coordinator.async_disable_output(self._output_index)
         if cat_stream_toggle:
             await self._coordinator.async_disable_cat_output(self._output_index)
+        await self._coordinator.async_request_refresh()
         
 
     async def async_volume_up(self):
@@ -366,6 +372,74 @@ class JtechMediaPlayer(MediaPlayerEntity):
     async def async_added_to_hass(self):
         """Subscribe to updates and handle HomeKit TV remote key presses."""
         self.hass.bus.async_listen(EVENT_HOMEKIT_TV_REMOTE_KEY_PRESSED, self._handle_tv_remote_key_press)
+
+    @callback
+    async def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        # Trigger an entity state update to reflect the latest data from the coordinator
+        _LOGGER.debug("handle_coordinator_update_data", self._coordinator.data)
+        self.async_write_ha_state()
+
+
+class JtechMasterMediaPlayer(MediaPlayerEntity):
+
+    def __init__(self, config_entry: ConfigEntry, coordinator: JtechCoordinator):
+        """Initialize the media player."""
+        self._config_entry = config_entry
+        self._coordinator = coordinator
+
+    @property
+    def unique_id(self):
+        """Return a unique ID for the media player."""
+        return f"{self._config_entry.unique_id}_master"
+
+    @property
+    def supported_features(self):
+        """Flag media player features that are supported."""
+        return (
+            MediaPlayerEntityFeature.TURN_ON
+            | MediaPlayerEntityFeature.TURN_OFF
+        )
+    
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return the device info."""
+
+        return DeviceInfo(
+            identifiers={ (DOMAIN, self.unique_id) },
+            name=f"{ATTR_MANUFACTURER} HDMI Matrix",
+            manufacturer=ATTR_MANUFACTURER,
+            model=self._coordinator.data["model"],
+            sw_version=self._coordinator.data["version"],
+            via_device=(DOMAIN, self._config_entry.unique_id),
+            configuration_url=f"http://{self._coordinator.data['hostname']}" if self._coordinator.data["hostname"] else None
+        )
+    
+    @property
+    def device_class(self):
+        """Return the device class."""
+        return MediaPlayerDeviceClass.TV
+
+    @property
+    def state(self):
+        """Return the state of the media player."""
+        power = self._coordinator.data.get("power", None)
+        if power is None:
+            return STATE_UNAVAILABLE
+        if power:
+            return STATE_ON
+        else:
+            return STATE_OFF
+
+    async def async_turn_on(self):
+        """Turn on master power for the J-Tech Digital HDMI Matrix."""
+        await self._coordinator.async_power_on()
+        await self._coordinator.async_request_refresh()
+
+    async def async_turn_off(self):
+        """Turn off master power for the J-Tech Digital HDMI Matrix."""
+        await self._coordinator.async_power_off()
+        await self._coordinator.async_request_refresh()
 
     @callback
     async def _handle_coordinator_update(self) -> None:
